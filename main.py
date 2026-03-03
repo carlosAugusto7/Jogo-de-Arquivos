@@ -161,5 +161,4 @@ def main(page: ft.Page):
     # Iniciar o jogo
     await iniciar_rodada()
 
-ft.app(target=main,
-view=ft.AppView.WEB_BROWSER, port8000)
+ft.app(target=main, view=ft.AppView.WEB_BROWSER, port=8000)
