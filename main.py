@@ -15,120 +15,90 @@ documentos = [
 ]
 
 async def main(page: ft.Page):
-    page.title = "Gestor de Arquivos v2"
+    page.title = "Gestor de Arquivos"
     page.theme_mode = ft.ThemeMode.DARK
-    page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
+    # Centralização garantida
     page.vertical_alignment = ft.MainAxisAlignment.CENTER
+    page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
     page.bgcolor = "#1e1e2f"
-    page.padding = 10 # Melhor para mobile
+    page.padding = 20
 
-    # Estado do Jogo
-    class GameState:
-        def __init__(self):
-            self.pontos = 0
-            self.rodada = 0
-            self.tempo = 20 # Tempo aumentado
-            self.vivo = False
-            self.doc_atual = None
-            self.timer_task = None
+    # Variáveis de controle (Estado)
+    class Game:
+        pontos = 0
+        rodada = 0
+        tempo = 25
+        vivo = False
+        doc_atual = None
+        task = None
 
-    st = GameState()
+    g = Game()
 
-    # --- Elementos de UI ---
+    # --- UI Elements ---
     lbl_rodada = ft.Text("RODADA 0/5", size=14, color="#a2a2ba", weight="bold")
-    lbl_pontos = ft.Text("PONTOS: 0", size=26, color="#00ffcc", weight="extrabold")
-    lbl_timer = ft.Text("20s", size=18, color="#ff7675", weight="bold")
-    prog_bar = ft.ProgressBar(width=300, value=1, color="#00cec9", bgcolor="#444")
-    lbl_nome_doc = ft.Text("", size=20, weight="bold", color="white", text_align="center")
+    lbl_pontos = ft.Text("PONTOS: 0", size=24, color="#00ffcc", weight="bold")
+    lbl_timer = ft.Text("25s", size=18, color="#ff7675", weight="bold")
+    prog_bar = ft.ProgressBar(width=300, value=1, color="#00cec9", bgcolor="#333")
+    lbl_nome_doc = ft.Text("", size=22, weight="bold", color="white", text_align="center")
 
-    # Radio Groups com layout melhorado
-    rg_setor = ft.RadioGroup(content=ft.Row([
-        ft.Radio(value="RH", label="RH"),
-        ft.Radio(value="Financeiro", label="Fin."),
-        ft.Radio(value="Administrativo", label="Adm."),
-        ft.Radio(value="Jurídico", label="Jur."),
-    ], alignment=ft.MainAxisAlignment.CENTER, wrap=True))
+    rg_setor = ft.RadioGroup(content=ft.Column([
+        ft.Row([ft.Radio(value="RH", label="RH"), ft.Radio(value="Financeiro", label="Fin.")], alignment="center"),
+        ft.Row([ft.Radio(value="Administrativo", label="Adm."), ft.Radio(value="Jurídico", label="Jur.")], alignment="center"),
+    ]))
 
     rg_ciclo = ft.RadioGroup(content=ft.Row([
-        ft.Radio(value="Corrente", label="Corrente"),
-        ft.Radio(value="Intermediario", label="Interm."),
+        ft.Radio(value="Corrente", label="Corr."),
+        ft.Radio(value="Intermediario", label="Inter."),
         ft.Radio(value="Permanente", label="Perm."),
-    ], alignment=ft.MainAxisAlignment.CENTER, wrap=True))
+    ], alignment="center"))
 
-    async def fechar_dialogo(e):
-        dlg_fim.open = False
-        await reiniciar_jogo()
-
-    dlg_fim = ft.AlertDialog(
-        title=ft.Text("Fim de Jogo!"),
-        actions=[ft.TextButton("Jogar Novamente", on_click=fechar_dialogo)]
-    )
-
-    # --- Funções Principais ---
-
-    async def timer_count():
-        try:
-            while st.tempo > 0 and st.vivo:
-                await asyncio.sleep(1)
-                st.tempo -= 1
-                lbl_timer.value = f"{st.tempo}s"
-                prog_bar.value = st.tempo / 20
-                page.update()
-            
-            if st.tempo == 0 and st.vivo:
-                await validar_resposta(timeout=True)
-        except asyncio.CancelledError:
-            pass
-
+    # --- Lógica ---
     async def iniciar_rodada():
-        if st.rodada >= 5:
+        if g.rodada >= 5:
             await finalizar_jogo()
             return
-
-        st.rodada += 1
-        st.tempo = 20
-        st.vivo = True
-        st.doc_atual = random.choice(documentos)
         
-        # Reset UI
-        lbl_rodada.value = f"RODADA {st.rodada}/5"
-        lbl_nome_doc.value = st.doc_atual["nome"]
+        g.rodada += 1
+        g.tempo = 25
+        g.vivo = True
+        g.doc_atual = random.choice(documentos)
+        
+        lbl_rodada.value = f"RODADA {g.rodada}/5"
+        lbl_nome_doc.value = g.doc_atual["nome"]
         rg_setor.value = None
         rg_ciclo.value = None
         prog_bar.value = 1
         btn_confirmar.disabled = False
-        btn_confirmar.visible = True
-        
         page.update()
         
-        # Inicia o timer
-        st.timer_task = asyncio.create_task(timer_count())
+        # Timer simplificado
+        while g.tempo > 0 and g.vivo:
+            await asyncio.sleep(1)
+            g.tempo -= 1
+            lbl_timer.value = f"{g.tempo}s"
+            prog_bar.value = g.tempo / 25
+            page.update()
+        
+        if g.tempo == 0 and g.vivo:
+            await validar_resposta(timeout=True)
 
     async def validar_resposta(timeout=False):
-        if not st.vivo: return
-        st.vivo = False
-        btn_confirmar.disabled = True # Evita múltiplos cliques
+        if not g.vivo: return
+        g.vivo = False
+        btn_confirmar.disabled = True
         
-        if st.timer_task:
-            st.timer_task.cancel()
-
-        ganhou_pontos = 0
+        p = 0
         if not timeout:
-            if rg_setor.value == st.doc_atual["setor"]: ganhou_pontos += 1
-            if rg_ciclo.value == st.doc_atual["ciclo"]: ganhou_pontos += 1
+            if rg_setor.value == g.doc_atual["setor"]: p += 1
+            if rg_ciclo.value == g.doc_atual["ciclo"]: p += 1
         
-        st.pontos += ganhou_pontos
-        lbl_pontos.value = f"PONTOS: {st.pontos}"
+        g.pontos += p
+        lbl_pontos.value = f"PONTOS: {g.pontos}"
         
-        # Cores e Feedback
-        cor = "green" if ganhou_pontos == 2 else "orange" if ganhou_pontos == 1 else "red"
-        msg = "Tempo Esgotado!" if timeout else f"+{ganhou_pontos} Pontos!"
+        cor = "green" if p == 2 else "orange" if p == 1 else "red"
+        txt = f"Gabarito: {g.doc_atual['setor']} | {g.doc_atual['ciclo']}"
         
-        snack = ft.SnackBar(
-            ft.Text(f"{msg} Gabarito: {st.doc_atual['setor']} | {st.doc_atual['ciclo']}"),
-            bgcolor=cor,
-            duration=2000
-        )
+        snack = ft.SnackBar(ft.Text(f"{'Tempo Esgotado!' if timeout else 'Respondido!'} {txt}"), bgcolor=cor)
         page.overlay.append(snack)
         snack.open = True
         page.update()
@@ -137,60 +107,47 @@ async def main(page: ft.Page):
         await iniciar_rodada()
 
     async def finalizar_jogo():
-        st.vivo = False
-        dlg_fim.content = ft.Text(f"Sua pontuação final: {st.pontos} de 10 possíveis!")
-        page.dialog = dlg_fim
-        dlg_fim.open = True
+        def restart(e):
+            page.clean() # Limpa a tela antes de reiniciar
+            asyncio.run_coroutine_threadsafe(main(page), asyncio.get_running_loop())
+
+        dlg = ft.AlertDialog(
+            title=ft.Text("Fim de Jogo!"),
+            content=ft.Text(f"Sua pontuação: {g.pontos}"),
+            actions=[ft.TextButton("Reiniciar", on_click=lambda _: page.reload())]
+        )
+        page.overlay.append(dlg)
+        dlg.open = True
         page.update()
 
-    async def reiniciar_jogo():
-        st.pontos = 0
-        st.rodada = 0
-        lbl_pontos.value = "PONTOS: 0"
-        await iniciar_rodada()
-
     btn_confirmar = ft.ElevatedButton(
-        "CONFIRMAR RESPOSTA",
+        "CONFIRMAR",
         on_click=lambda _: asyncio.create_task(validar_resposta()),
-        bgcolor="#00b894",
-        color="white",
-        height=50,
-        expand=True
+        bgcolor="#00b894", color="white", width=250
     )
 
     # --- Layout Responsivo ---
-    card_jogo = ft.Container(
+    # Usamos um Container com largura adaptável (max_width)
+    conteudo = ft.Container(
         content=ft.Column([
             lbl_rodada,
             lbl_pontos,
-            ft.Row([lbl_timer, prog_bar], alignment=ft.MainAxisAlignment.CENTER, wrap=True),
-            ft.Divider(height=10, color="transparent"),
-            ft.Container(
-                content=lbl_nome_doc,
-                padding=20,
-                bgcolor="#2d2d44",
-                border_radius=15,
-                border=ft.border.all(1, "#444"),
-                alignment=ft.alignment.center
-            ),
-            ft.Text("SETOR RESPONSÁVEL:", size=12, weight="bold", color="#a2a2ba"),
+            ft.Column([lbl_timer, prog_bar], horizontal_alignment="center", spacing=5),
+            ft.Container(lbl_nome_doc, padding=20, bgcolor="#2d2d44", border_radius=10),
+            ft.Text("SETOR", size=12, weight="bold"),
             rg_setor,
-            ft.Text("FASE DO CICLO VITAL:", size=12, weight="bold", color="#a2a2ba"),
+            ft.Text("CICLO", size=12, weight="bold"),
             rg_ciclo,
-            ft.Row([btn_confirmar])
-        ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=15),
-        padding=25,
+            btn_confirmar
+        ], horizontal_alignment="center", spacing=15),
         bgcolor="#252538",
+        padding=20,
         border_radius=20,
-        shadow=ft.BoxShadow(blur_radius=30, color="#1a000000"),
-        width=450, # Largura máxima
-        margin=10
+        width=400, # Largura fixa para PC, mas Flet ajusta no mobile se a tela for menor
     )
 
-    page.add(ft.SafeControlAncestor(ft.Column([card_jogo], horizontal_alignment=ft.CrossAxisAlignment.CENTER)))
-    
-    # Início do Jogo
-    await iniciar_rodada()
+    page.add(conteudo)
+    asyncio.create_task(iniciar_rodada())
 
 if __name__ == "__main__":
     ft.app(target=main)
