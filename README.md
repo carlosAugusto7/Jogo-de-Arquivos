@@ -1,6 +1,7 @@
 # 📂 Gestor de Arquivos - O Jogo
 
 Um Web App interativo para praticar a teoria de arquivos (Arquivologia).
+Criado e Usado para uma apresentação no CIEE
 
 ## 🚀 Como jogar
 1. O app apresenta o nome de um documento aleatório.
